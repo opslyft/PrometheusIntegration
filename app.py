@@ -1,6 +1,4 @@
 import csv
-import boto3
-import traceback
 import requests
 import sys
 from logger import logger
@@ -65,7 +63,7 @@ def CompressData(labelnames, results):
 #       logger.error(traceback.format_exc())
 
 def main():
-  if not prometheus_credentials or not victoriametrics_credentials or not accountid:
+  if not prometheus_credentials or not accountid:
     logger.info('Credentials not found')
     sys.exit(1)
   metrixNames=GetMetricsNames(prometheus_credentials["url"])

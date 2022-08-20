@@ -142,3 +142,5 @@ testing.py
 .vscode/*
 app_bkp.py
 prometheus-*
+*.gz
+*.csv
