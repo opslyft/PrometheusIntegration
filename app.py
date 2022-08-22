@@ -3,7 +3,7 @@ import requests
 import sys
 from logger import logger
 from getRequiredMetrics import getRequiredMetrics
-from credentials import prometheus_credentials, victoriametrics_credentials, accountid
+from credentials import prometheus_credentials, accountid
 
 def GetMetricsNames(url):
     metrics = getRequiredMetrics()
