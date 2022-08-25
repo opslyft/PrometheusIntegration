@@ -1,6 +1,4 @@
-import csv
-import requests
-import sys
+import os, boto3, sys, requests, csv
 from logger import logger
 from getRequiredMetrics import getRequiredMetrics
 from credentials import prometheus_credentials, accountid
@@ -48,19 +46,25 @@ def CompressData(labelnames, results):
           l.append(accountid)
           writer.writerow(l)
 
-# def UploadToS3():
-#   logger.info("Uploading to S3 bucket {0}_prometheus".format(accountid))
-#   try:
-#     s3=boto3.client('s3')
-#     bucketName=f"opslyft-{accountid}-prometheus"
-#     with open("2022_08_16_metrics.gz", "rb") as f:
-#       s3.upload_fileobj(f, bucketName, "OBJECT_NAME")
-#     if resp:
-#         return True
-#     else:
-#         return False
-#   except:
-#       logger.error(traceback.format_exc())
+def UploadToS3():
+  logger.info("Uploading to S3 bucket {0}_prometheus".format(accountid))
+  sts_client = boto3.client('sts')
+  assumed_role_object=sts_client.assume_role(
+      RoleArn=f"arn:aws:iam::{accountid}:role/OpslyftPrometheusS3IAMRole",
+      RoleSessionName="AssumeRoleSession1"
+  )
+  credentials=assumed_role_object['Credentials']
+  s3_resource=boto3.resource(
+      's3',
+      aws_access_key_id=credentials['AccessKeyId'],
+      aws_secret_access_key=credentials['SecretAccessKey'],
+      aws_session_token=credentials['SessionToken'],
+  )
+  logger.log(s3_resource)
+  object = s3_resource.Object(f'{accountid}-prometheus-test', 'metrics.gz')
+  result = object.put(Body=open('metrics.gz', 'rb'))
+  logger.log(result)
+  os.remove('metrics.gz')
 
 def main():
   if not prometheus_credentials or not accountid:
@@ -75,7 +79,7 @@ def main():
   results = GetPrometheusData(metrixNames)
   labelnames = GetLabelNames(results)
   CompressData(labelnames, results)
-  # UploadToS3()
+  UploadToS3()
 
 main()
 
