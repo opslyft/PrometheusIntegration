@@ -1,4 +1,4 @@
-import os, boto3, sys, requests, csv
+import os, boto3, sys, requests, csv, traceback
 from logger import logger
 from getRequiredMetrics import getRequiredMetrics
 from credentials import prometheus_credentials, accountid
@@ -63,12 +63,12 @@ def UploadToS3():
         aws_session_token=credentials['SessionToken'],
     )
     logger.info(s3_resource)
-    object = s3_resource.Object(f'{accountid}-prometheus-test', 'metrics.gz')
+    object = s3_resource.Object(f'{accountid}-prometheus-bucket', 'metrics.gz')
     result = object.put(Body=open('metrics.gz', 'rb'))
     logger.info(result)
     os.remove('metrics.gz')
-  except:
-    logger.info("An exception occurred")
+  except Exception:
+        logger.error(traceback.format_exc())
 
 def main():
   if not prometheus_credentials or not accountid:
