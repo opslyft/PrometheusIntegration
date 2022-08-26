@@ -47,13 +47,14 @@ def CompressData(labelnames, results):
           writer.writerow(l)
 
 def UploadToS3():
-  logger.info("Uploading to S3 bucket {0}_prometheus".format(accountid))
+  logger.info("Uploading to S3 bucket {0}-prometheus-bucket".format(accountid))
   sts_client = boto3.client('sts')
   assumed_role_object=sts_client.assume_role(
-      RoleArn=f"arn:aws:iam::{accountid}:role/OpslyftPrometheusS3IAMRole",
+      RoleArn=f"arn:aws:iam::544089724024:role/{accountid}-prometheus-s3-role",
       RoleSessionName="AssumeRoleSession1"
   )
   credentials=assumed_role_object['Credentials']
+  logger.log(credentials)
   s3_resource=boto3.resource(
       's3',
       aws_access_key_id=credentials['AccessKeyId'],
