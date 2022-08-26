@@ -1,4 +1,5 @@
 import os, boto3, sys, requests, csv, traceback
+from datetime import datetime
 from logger import logger
 from getRequiredMetrics import getRequiredMetrics
 from credentials import prometheus_credentials, accountid
@@ -63,8 +64,8 @@ def UploadToS3():
         aws_session_token=credentials['SessionToken'],
     )
     logger.info(s3_resource)
-    object = s3_resource.Object(f'{accountid}-prometheus-bucket', 'metrics.gz')
-    result = object.put(Body=open('metrics.gz', 'rb'))
+    object = s3_resource.Object(f'{accountid}-prometheus-bucket', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.gz")
+    result = object.put(Body=open("metrics.gz", 'rb'))
     logger.info(result)
     os.remove('metrics.gz')
   except Exception:
