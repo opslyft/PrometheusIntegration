@@ -47,25 +47,28 @@ def CompressData(labelnames, results):
           writer.writerow(l)
 
 def UploadToS3():
-  logger.info("Uploading to S3 bucket {0}-prometheus-bucket".format(accountid))
-  sts_client = boto3.client('sts')
-  assumed_role_object=sts_client.assume_role(
-      RoleArn=f"arn:aws:iam::544089724024:role/{accountid}-prometheus-s3-role",
-      RoleSessionName="AssumeRoleSession1"
-  )
-  credentials=assumed_role_object['Credentials']
-  logger.log(credentials)
-  s3_resource=boto3.resource(
-      's3',
-      aws_access_key_id=credentials['AccessKeyId'],
-      aws_secret_access_key=credentials['SecretAccessKey'],
-      aws_session_token=credentials['SessionToken'],
-  )
-  logger.log(s3_resource)
-  object = s3_resource.Object(f'{accountid}-prometheus-test', 'metrics.gz')
-  result = object.put(Body=open('metrics.gz', 'rb'))
-  logger.log(result)
-  os.remove('metrics.gz')
+  try:
+    logger.info("Uploading to S3 bucket {0}-prometheus-bucket".format(accountid))
+    sts_client = boto3.client('sts')
+    assumed_role_object=sts_client.assume_role(
+        RoleArn=f"arn:aws:iam::544089724024:role/{accountid}-prometheus-s3-role",
+        RoleSessionName="AssumeRoleSession1"
+    )
+    credentials=assumed_role_object['Credentials']
+    logger.info(credentials)
+    s3_resource=boto3.resource(
+        's3',
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken'],
+    )
+    logger.info(s3_resource)
+    object = s3_resource.Object(f'{accountid}-prometheus-test', 'metrics.gz')
+    result = object.put(Body=open('metrics.gz', 'rb'))
+    logger.info(result)
+    os.remove('metrics.gz')
+  except:
+    logger.info("An exception occurred")
 
 def main():
   if not prometheus_credentials or not accountid:
