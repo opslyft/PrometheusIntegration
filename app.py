@@ -1,6 +1,7 @@
 import os, boto3, sys, requests, csv, traceback
 from datetime import datetime
 from logger import logger
+from utils.auth import assume_role
 from getRequiredMetrics import getRequiredMetrics
 from credentials import prometheus_credentials, accountid
 
@@ -50,20 +51,14 @@ def CompressData(labelnames, results):
 def UploadToS3():
   try:
     logger.info("Uploading to S3 bucket {0}-prometheus-bucket".format(accountid))
-    sts_client = boto3.client('sts')
-    assumed_role_object=sts_client.assume_role(
-        RoleArn=f"arn:aws:iam::544089724024:role/{accountid}-prometheus-s3-role",
-        RoleSessionName="AssumeRoleSession1"
-    )
-    credentials=assumed_role_object['Credentials']
-    logger.info(credentials)
+    credentials = assume_role()
     s3_resource=boto3.resource(
         's3',
         aws_access_key_id=credentials['AccessKeyId'],
         aws_secret_access_key=credentials['SecretAccessKey'],
         aws_session_token=credentials['SessionToken'],
     )
-    logger.info(s3_resource)
+    s3_resource.create_bucket(Bucket=f'{accountid}-prometheus-bucket')
     object = s3_resource.Object(f'{accountid}-prometheus-bucket', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.gz")
     result = object.put(Body=open("metrics.gz", 'rb'))
     logger.info(result)
@@ -72,6 +67,7 @@ def UploadToS3():
         logger.error(traceback.format_exc())
 
 def main():
+  logger.info("Importing prometheus data for account{accountid}")
   if not prometheus_credentials or not accountid:
     logger.info('Credentials not found')
     sys.exit(1)
