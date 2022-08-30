@@ -58,7 +58,6 @@ def UploadToS3():
         aws_secret_access_key=credentials['SecretAccessKey'],
         aws_session_token=credentials['SessionToken'],
     )
-    s3_resource.create_bucket(Bucket=f'{accountid}-prometheus-bucket')
     object = s3_resource.Object(f'{accountid}-prometheus-bucket', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.gz")
     result = object.put(Body=open("metrics.gz", 'rb'))
     logger.info(result)
