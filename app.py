@@ -50,7 +50,7 @@ def CompressData(labelnames, results):
 
 def UploadToS3():
   try:
-    logger.info("Uploading to S3 bucket {0}-prometheus-bucket".format(accountid))
+    logger.info("Uploading to S3 bucket prometheus-bucket-{0}".format(accountid))
     credentials = assume_role()
     s3_resource=boto3.resource(
         's3',
@@ -59,7 +59,7 @@ def UploadToS3():
         aws_session_token=credentials['SessionToken'],
         region_name='us-east-1'
     )
-    object = s3_resource.Object(f'{accountid}-prometheus-bucket', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.gz")
+    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.gz")
     result = object.put(Body=open("metrics.gz", 'rb'))
     logger.info(result)
     os.remove('metrics.gz')

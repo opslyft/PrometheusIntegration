@@ -15,7 +15,7 @@ opslyft_boto3_client = boto3.client(
     aws_session_token=credentials['SessionToken'],
     region_name='us-east-1'
 )
-logger.addHandler(watchtower.CloudWatchLogHandler(boto3_client=opslyft_boto3_client,log_group_name=f"{accountid}-prometheus-logs",log_stream_name=f"{accountid}_prometheus_logs_{datetime.today().strftime('%Y-%m-%d')}"))
+logger.addHandler(watchtower.CloudWatchLogHandler(boto3_client=opslyft_boto3_client,log_group_name=f"prometheus-logs-{accountid}",log_stream_name=f"{accountid}_prometheus_logs_{datetime.today().strftime('%Y-%m-%d')}"))
 logger.setLevel(logging.INFO)
 
 
