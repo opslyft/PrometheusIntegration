@@ -1,4 +1,4 @@
-import os, boto3, sys, requests, csv, traceback
+import os, boto3, sys, requests, json, traceback, gzip
 from datetime import datetime
 from logger import logger
 from utils.auth import assume_role
@@ -25,28 +25,22 @@ def GetPrometheusData(metrixNames):
   # logger.info(results)
   return results
 
-def GetLabelNames(results):
-  labelnames = set()
-  for result in results:
-    labelnames.update(result['metric'].keys())
-  labelnames.discard('__name__')
-  labelnames = sorted(labelnames)
-  logger.info("Label names")
-  logger.info(labelnames)
-  return labelnames
-
-def CompressData(labelnames, results):
+def CompressData(results):
   logger.info("Zipping data")
-  # Write the samples.
-  writer = csv.writer(sys.stdout)
-  writer.writerow(['name', 'timestamp', 'value'] + labelnames + ['accountid'])
-  for result in results:
-      for value in result['values']:
-          l = [result['metric'].get('__name__', '')] + value
-          for label in labelnames:
-              l.append(result['metric'].get(label, ''))
-          l.append(accountid)
-          writer.writerow(l)
+  converted_results = map(lambda el: {
+      "metric": el["metric"],
+      "values": list(map(lambda value: float(value[1]), el["values"])),
+      "timestamps": list(map(lambda value: int(float(value[0])*1000), el["values"])),
+    }, results)
+  # Convert to JSON
+  json_data = json.dumps(list(converted_results))
+  # Convert to bytes
+  encoded = json_data.encode('utf-8')
+  # Compress
+  compressed = gzip.compress(encoded)
+
+  with open("metrics.zip", 'wb') as f: 
+    f.write(compressed)
 
 def UploadToS3():
   try:
@@ -59,15 +53,15 @@ def UploadToS3():
         aws_session_token=credentials['SessionToken'],
         region_name='us-east-1'
     )
-    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.gz")
-    result = object.put(Body=open("metrics.gz", 'rb'))
+    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.zip")
+    result = object.put(Body=open("metrics.zip", 'rb'))
     logger.info(result)
-    os.remove('metrics.gz')
+    os.remove('metrics.zip')
   except Exception:
         logger.error(traceback.format_exc())
 
 def main():
-  logger.info("Importing prometheus data for account{accountid}")
+  logger.info(f"Importing prometheus data for account: {accountid}")
   if not prometheus_credentials or not accountid:
     logger.info('Credentials not found')
     sys.exit(1)
@@ -78,8 +72,7 @@ def main():
     logger.info('Metrics not available')
     sys.exit(1)
   results = GetPrometheusData(metrixNames)
-  labelnames = GetLabelNames(results)
-  CompressData(labelnames, results)
+  CompressData(results)
   UploadToS3()
 
 main()
