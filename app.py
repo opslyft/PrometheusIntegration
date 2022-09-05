@@ -15,9 +15,9 @@ def GetMetricsNames(url):
 def GetPrometheusData(metrixNames):
   metrixString = '|'.join(metrixNames)
   logger.info('Querying prometheus at {0}'.format(prometheus_credentials["url"]))
-  logger.info('Query : ' + '{{__name__=~"{0}"}}'.format(metrixString) + '[1d]')
+  logger.info('Query : ' + '{{__name__=~"{0}"}}'.format(metrixString) + '[1h]')
   response = requests.get('{0}/api/v1/query'.format(prometheus_credentials["url"]),
-  params={'query': '{{__name__=~"{0}"}}'.format(metrixString) + '[1d]'})
+  params={'query': '{{__name__=~"{0}"}}'.format(metrixString) + '[1h]'})
   # logger.info('Query response')
   # logger.info(response)
   results = response.json()['data']['result']
@@ -53,7 +53,7 @@ def UploadToS3():
         aws_session_token=credentials['SessionToken'],
         region_name='us-east-1'
     )
-    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.today().strftime('%Y-%m-%d')}_metrics.zip")
+    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}_metrics.zip")
     result = object.put(Body=open("metrics.zip", 'rb'))
     logger.info(result)
     os.remove('metrics.zip')
@@ -76,64 +76,3 @@ def main():
   UploadToS3()
 
 main()
-
-
-
-
-
-
-
-
-
-
-
-
-# groupeddata = dict()
-# for result in results:
-#     for value in result["values"]:
-#         if value[0] not in groupeddata:
-#             groupeddata[value[0]] = {}
-#         for metric in metrixNames:
-#             if metric == result["metric"]["__name__"]:
-#                 groupeddata[value[0]][metric] = value[1]
-#         for labelname in labelnames:
-#             if labelname in result['metric']:
-#                 groupeddata[value[0]][labelname] = result["metric"][labelname]
-        
-# # print(groupeddata)
-
-# csvstringformatarray = []
-# for index, metric in enumerate(metrixNames):
-#     csvstringformatarray.append(f"{index+1}:metric:{metric}")
-
-# csvstringformatarray.append(f"{len(metrixNames)+1}:time:unix_ms")
-
-# for index, labelname in enumerate(labelnames):
-#     csvstringformatarray.append(f"{len(metrixNames)+ 2 + index}:label:{labelname}")
-
-# csvstringformat = ','.join(csvstringformatarray)
-# print(csvstringformatarray)
-# print(csvstringformat)
-
-
-# for timekey in groupeddata.keys():
-#     csvstringvaluesarray=[]
-#     for index, metric in enumerate(metrixNames):
-#         if metric in groupeddata[timekey]:
-#             csvstringvaluesarray.append(groupeddata[timekey][metric])
-#         else:
-#             csvstringvaluesarray.append(0)
-#     csvstringvaluesarray.append(f"{str(int(timekey)*1000)}")
-#     for index, labelname in enumerate(labelnames):
-#         if labelname in groupeddata[timekey]:
-#             csvstringvaluesarray.append(groupeddata[timekey][labelname])
-#         else:
-#             csvstringvaluesarray.append('')
-#     csvstringvalues = ','.join(csvstringvaluesarray)
-#     print(csvstringvaluesarray)
-#     print(csvstringvalues)
-#     params = (
-#         ('format', csvstringformat),
-#     )
-#     response = requests.post('{0}/api/v1/import/csv'.format(victoriametrics_credentials["url"]), params=params, data=csvstringvalues)
-#     print(response)
