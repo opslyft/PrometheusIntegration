@@ -42,7 +42,7 @@ def CompressData(results):
   with open("metrics.zip", 'wb') as f: 
     f.write(compressed)
 
-def UploadToS3():
+def UploadToS3(date, start_hour, end_hour):
   try:
     logger.info("Uploading to S3 bucket prometheus-bucket-{0}".format(accountid))
     credentials = assume_role()
@@ -53,7 +53,7 @@ def UploadToS3():
         aws_session_token=credentials['SessionToken'],
         region_name='us-east-1'
     )
-    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.now().strftime('%d-%m-%Y')}_{datetime.now().hour}-{(datetime.now().hour+1) % 24}_metrics.zip")
+    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{date}_{start_hour}-{end_hour}_metrics.zip")
     result = object.put(Body=open("metrics.zip", 'rb'))
     logger.info(result)
     os.remove('metrics.zip')
@@ -71,8 +71,11 @@ def main():
   if len(metrixNames) == 0:
     logger.info('Metrics not available')
     sys.exit(1)
+  date = datetime.now().strftime('%d-%m-%Y')
+  start_hour = datetime.now().hour
+  end_hour = (start_hour + 1) % 24
   results = GetPrometheusData(metrixNames)
   CompressData(results)
-  UploadToS3()
+  UploadToS3(date, start_hour, end_hour)
 
 main()
