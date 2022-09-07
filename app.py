@@ -53,7 +53,7 @@ def UploadToS3():
         aws_session_token=credentials['SessionToken'],
         region_name='us-east-1'
     )
-    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.now().strftime('%d-%m-%Y-%H')}_{datetime.now().hour}-{(datetime.now().hour+1) % 24}_metrics.zip")
+    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{datetime.now().strftime('%d-%m-%Y')}_{datetime.now().hour}-{(datetime.now().hour+1) % 24}_metrics.zip")
     result = object.put(Body=open("metrics.zip", 'rb'))
     logger.info(result)
     os.remove('metrics.zip')
