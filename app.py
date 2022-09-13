@@ -3,7 +3,7 @@ from datetime import datetime
 from logger import logger
 from utils.auth import assume_role
 from getRequiredMetrics import getRequiredMetrics
-from credentials import prometheus_credentials, accountid
+from credentials import prometheus_credentials, accountid, stackid
 
 def GetMetricsNames(url):
     metrics = getRequiredMetrics()
@@ -53,7 +53,7 @@ def UploadToS3(date, start_hour, end_hour):
         aws_session_token=credentials['SessionToken'],
         region_name='us-east-1'
     )
-    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{date}_{start_hour}-{end_hour}_metrics.zip")
+    object = s3_resource.Object(f'prometheus-bucket-{accountid}', f"{stackid}/{date}_{start_hour}-{end_hour}_metrics.zip")
     result = object.put(Body=open("metrics.zip", 'rb'))
     logger.info(result)
     os.remove('metrics.zip')
