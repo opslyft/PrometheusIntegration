@@ -62,7 +62,7 @@ def UploadToS3(date, start_hour, end_hour):
 
 def main():
   logger.info(f"Importing prometheus data for account: {accountid}")
-  if not prometheus_credentials or not accountid:
+  if not prometheus_credentials or not accountid or not stackid:
     logger.info('Credentials not found')
     sys.exit(1)
   metrixNames=GetMetricsNames(prometheus_credentials["url"])
