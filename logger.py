@@ -1,5 +1,5 @@
 import logging, watchtower, boto3
-from credentials import accountid, stackid
+from credentials import accountid, unique_id
 from utils.auth import assume_role
 from datetime import datetime
 
@@ -15,7 +15,7 @@ opslyft_boto3_client = boto3.client(
     aws_session_token=credentials['SessionToken'],
     region_name='us-east-1'
 )
-logger.addHandler(watchtower.CloudWatchLogHandler(boto3_client=opslyft_boto3_client,log_group_name=f"prometheus-logs-{accountid}-{stackid}",log_stream_name=f"{accountid}-{stackid}_prometheus_logs_{datetime.today().strftime('%Y-%m-%d')}"))
+logger.addHandler(watchtower.CloudWatchLogHandler(boto3_client=opslyft_boto3_client,log_group_name=f"prometheus-logs-{accountid}-{unique_id}",log_stream_name=f"{accountid}-{unique_id}_prometheus_logs_{datetime.today().strftime('%Y-%m-%d')}"))
 logger.setLevel(logging.INFO)
 
 
