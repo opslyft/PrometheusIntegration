@@ -28,7 +28,7 @@ def GetPrometheusData(metrixNames):
 def CompressData(results):
   logger.info("Zipping data")
   converted_results = map(lambda el: {
-      "metric": {**el["metric"], 'accountid': accountid},
+      "metric": {**el["metric"]},
       "values": list(map(lambda value: float(value[1]), el["values"])),
       "timestamps": list(map(lambda value: int(float(value[0])*1000), el["values"])),
     }, results)
