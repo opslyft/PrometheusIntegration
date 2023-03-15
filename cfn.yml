@@ -327,8 +327,11 @@ Resources:
   SetupOpsLyft:
     Type: 'AWS::CloudFormation::CustomResource'
     Properties:
-      ServiceToken: >-
-        arn:aws:sns:us-east-1:612488371952:OpslyftPrometheusSetupCloudFormationTopic
+      ServiceToken: !Join
+        - ''
+        - - 'arn:aws:sns:'
+          - !Ref 'AWS::Region'
+          - ':612488371952:OpslyftPrometheusSetupCloudFormationTopic'
       unique_id: !Select 
         - 2
         - !Split 
