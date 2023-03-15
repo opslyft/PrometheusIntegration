@@ -8,41 +8,48 @@ from credentials import prometheus_credentials, accountid, unique_id
 def GetMetricsNames(url,username=None,password=None):
     metrics = getRequiredMetrics()
     logger.info("Fetching metrics names")
-    
+    names=[]
     if username and password:
       try:
         response = requests.get('{0}/api/v1/label/__name__/values'.format(url),auth=requests.auth.HTTPBasicAuth(username, password))
         response.raise_for_status()
+        names = response.json()['data']
       except Exception as e:
         logger.error(e)
+        
         
     else:
       try:
         response = requests.get('{0}/api/v1/label/__name__/values'.format(url))
         response.raise_for_status()
+        names = response.json()['data']
       except Exception as e:
         logger.error(e)
         
-    names = response.json()['data']
-    return [x for x in names if x in metrics]
+    return [x for x in names if x in metrics], names
 
 def GetPrometheusData(metrixNames,username=None,password=None):
   metrixString = '|'.join(metrixNames)
   logger.info('Querying prometheus at {0}'.format(prometheus_credentials["url"]))
   logger.info('Query : ' + '{{__name__=~"{0}"}}'.format(metrixString) + '[1h]')
-  
-  if username and password:
-    response = requests.get('{0}/api/v1/query'.format(prometheus_credentials["url"]),
-    params={'query': '{{__name__=~"{0}"}}'.format(metrixString) + '[1h]'},auth=requests.auth.HTTPBasicAuth(username, password))
-  else:
-    response = requests.get('{0}/api/v1/query'.format(prometheus_credentials["url"]),
-    params={'query': '{{__name__=~"{0}"}}'.format(metrixString) + '[1h]'})
-  # logger.info('Query response')
-  # logger.info(response)
-  results = response.json()['data']['result']
-  # logger.info('Resultant metrics')
-  # logger.info(results)
-  return results
+  try:
+    if username and password:
+      response = requests.get('{0}/api/v1/query'.format(prometheus_credentials["url"]),
+      params={'query': '{{__name__=~"{0}"}}'.format(metrixString) + '[1h]'},auth=requests.auth.HTTPBasicAuth(username, password))
+      response.raise_for_status()
+    else:
+      response = requests.get('{0}/api/v1/query'.format(prometheus_credentials["url"]),
+      params={'query': '{{__name__=~"{0}"}}'.format(metrixString) + '[1h]'})
+      response.raise_for_status()
+    # logger.info('Query response')
+    # logger.info(response)
+    results = response.json()['data']['result']
+    # logger.info('Resultant metrics')
+    # logger.info(results)
+    return results
+  except Exception as e:
+    logger.error(e)
+    
 
 def CompressData(results):
   logger.info("Zipping data")
@@ -84,22 +91,31 @@ def main():
   if not prometheus_credentials or not accountid or not unique_id:
     logger.info('Credentials not found')
     sys.exit(1)
-  username=prometheus_credentials['username']
-  password=prometheus_credentials['password']
+  username=''
+  password=''
+  try:
+    username=prometheus_credentials['username']
+    password=prometheus_credentials['password']
+  except KeyError:
+    pass
   url = prometheus_credentials["url"]
   if username and password:
-    metrixNames=GetMetricsNames(url,username,password)
+    metrixNames, availableMetrics=GetMetricsNames(url,username,password)
   else:
-    metrixNames=GetMetricsNames(url)
+    metrixNames, availableMetrics=GetMetricsNames(url)
   logger.info("Filtered metrics names")
   logger.info(metrixNames)
   if len(metrixNames) == 0:
     logger.info('Metrics not available')
+    logger.info(f'Available Metrics: {availableMetrics}')
     sys.exit(1)
   date = datetime.now().strftime('%d-%m-%Y')
   start_hour = datetime.now().hour
   end_hour = (start_hour + 1) % 24
-  results = GetPrometheusData(metrixNames)
+  if username and password:
+    results = GetPrometheusData(metrixNames,username,password)
+  else:
+    results = GetPrometheusData(metrixNames)
   CompressData(results)
   UploadToS3(date, start_hour, end_hour)
 

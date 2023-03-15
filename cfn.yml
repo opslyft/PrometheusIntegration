@@ -13,8 +13,15 @@ Parameters:
     Description: The user's prometheus url (required)
     Type: String
   SubnetId:
-    Description: The user's subnet id
+    Description: The subnet id in which prometheus is running
     Type: String
+  PrometheusUsername:
+    Description: Username of prometheus if using basic auth (Leave Empty if not using auth)
+    Type: String
+  PrometheusPassword:
+    Description: Password of prometheus if using basic auth (Leave Empty if not using auth)
+    Type: String
+    NoEcho: True
 Mappings:
   AWSRegionAMIEC2:
     us-east-1:
@@ -108,6 +115,8 @@ Resources:
               command: systemctl enable cfn-hup.service
             02start_cfn_hup:
               command: systemctl start cfn-hup.service
+      'AWS::CloudFormation::Designer':
+        id: 16a9dbc7-6f81-421e-ad64-7dd949b30250
     Properties:
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Join 
@@ -158,6 +167,8 @@ Resources:
             - |
               cd PrometheusIntegration
             - |
+              git checkout feature-auth
+            - |
               sudo apt-get install python3-venv -y
             - |
               sudo python3 -m venv venv
@@ -169,6 +180,10 @@ Resources:
               cat <<EOF >credentials.py
             - 'prometheus_credentials = { "url": "'
             - !Ref PrometheusURL
+            - '", "username":"'
+            - !Ref PrometheusUsername
+            - '", "password":"'
+            - !Ref PrometheusPassword
             - |
               " }
             - accountid = "
@@ -245,6 +260,9 @@ Resources:
                 - !Ref 'AWS::StackId'
     DependsOn:
       - OpslyftPrometheusIAMRole
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 9baed8b3-117b-4a53-8ce8-7353bf548559
   OpslyftPrometheusIAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -303,11 +321,14 @@ Resources:
               - /
               - !Ref 'AWS::StackId'
       Tags: []
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 9260299f-0ffe-4a78-87c0-84b5868425d2
   SetupOpsLyft:
     Type: 'AWS::CloudFormation::CustomResource'
     Properties:
       ServiceToken: >-
-        arn:aws:sns:ap-south-1:612488371952:OpslyftPrometheusSetupCloudFormationTopic
+        arn:aws:sns:us-east-1:612488371952:OpslyftPrometheusSetupCloudFormationTopic
       unique_id: !Select 
         - 2
         - !Split 
@@ -322,3 +343,48 @@ Resources:
       subnet_id: !Ref SubnetId
     DependsOn:
       - EC2Instance
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: d1d93663-98b5-4998-8446-2a011ec31441
+Metadata:
+  'AWS::CloudFormation::Designer':
+    9260299f-0ffe-4a78-87c0-84b5868425d2:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 60
+        'y': 90
+      z: 1
+      embeds: []
+    9baed8b3-117b-4a53-8ce8-7353bf548559:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 180
+        'y': 90
+      z: 1
+      embeds: []
+      dependson:
+        - 9260299f-0ffe-4a78-87c0-84b5868425d2
+    16a9dbc7-6f81-421e-ad64-7dd949b30250:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 60
+        'y': 210
+      z: 1
+      embeds: []
+      dependson:
+        - 9baed8b3-117b-4a53-8ce8-7353bf548559
+    d1d93663-98b5-4998-8446-2a011ec31441:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 180
+        'y': 210
+      z: 1
+      embeds: []
