@@ -1,0 +1,393 @@
+Description: Prometheus Exporter
+Parameters:
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.medium
+    AllowedValues:
+      - t2.small
+      - t2.medium
+      - t2.large
+    ConstraintDescription: must be a valid EC2 instance type.
+  PrometheusURL:
+    Description: The user's prometheus url (required)
+    Type: String
+  SubnetId:
+    Description: The subnet id in which prometheus is running
+    Type: String
+  PrometheusUsername:
+    Description: Username of prometheus if using basic auth (Leave Empty if not using auth)
+    Type: String
+  PrometheusPassword:
+    Description: Password of prometheus if using basic auth (Leave Empty if not using auth)
+    Type: String
+    NoEcho: true
+Mappings:
+  AWSRegionAMIEC2:
+    us-east-1:
+      Ubuntu20: ami-03d315ad33b9d49c4
+    us-east-2:
+      Ubuntu20: ami-0996d3051b72b5b2c
+    us-west-2:
+      Ubuntu20: ami-0928f4202481dfdf6
+    us-west-1:
+      Ubuntu20: ami-0ebef2838fb2605b7
+    eu-west-1:
+      Ubuntu20: ami-022e8cc8f0d3c52fd
+    eu-central-1:
+      Ubuntu20: ami-0932440befd74cdba
+    ap-northeast-1:
+      Ubuntu20: ami-0e039c7d64008bd84
+    ap-southeast-1:
+      Ubuntu20: ami-09a6a7e49bd29554b
+    ap-southeast-2:
+      Ubuntu20: ami-0d767dd04ac152743
+    ap-south-1:
+      Ubuntu20: ami-05a4d15dd76d3e8ee
+Resources:
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT7M
+        Count: '1'
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          full_install:
+            - install_and_enable_cfn_hup
+        install_and_enable_cfn_hup:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Join 
+                - ''
+                - - |
+                    [main]
+                  - stack=
+                  - !Ref 'AWS::StackId'
+                  - |+
+
+                  - region=
+                  - !Ref 'AWS::Region'
+                  - |+
+
+              mode: '000400'
+              owner: root
+              group: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Join 
+                - ''
+                - - |
+                    [cfn-auto-reloader-hook]
+                  - 'triggers=post.update '
+                  - >-
+                    path=Resources.EC2Instance.Metadata.AWS::CloudFormation::Init 
+                  - 'action=/opt/aws/bin/cfn-init -v '
+                  - '         --stack '
+                  - !Ref 'AWS::StackName'
+                  - '         --resource EC2Instance '
+                  - '         --configsets full_install '
+                  - '         --region '
+                  - !Ref 'AWS::Region'
+                  - |+
+
+                  - 'runas=root '
+            /lib/systemd/system/cfn-hup.service:
+              content: !Join 
+                - ''
+                - - |
+                    [Unit]
+                  - |+
+                    Description=cfn-hup daemon
+
+                  - |
+                    [Service]
+                  - 'Type=simple '
+                  - 'ExecStart=/opt/aws/bin/cfn-hup '
+                  - |+
+                    Restart=always
+
+                  - |
+                    [Install]
+                  - WantedBy=multi-user.target
+          commands:
+            01enable_cfn_hup:
+              command: systemctl enable cfn-hup.service
+            02start_cfn_hup:
+              command: systemctl start cfn-hup.service
+      'AWS::CloudFormation::Designer':
+        id: 16a9dbc7-6f81-421e-ad64-7dd949b30250
+    Properties:
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Join 
+        - ''
+        - - OpslyftPrometheusInstanceProfile-
+          - !Select 
+            - 2
+            - !Split 
+              - /
+              - !Ref 'AWS::StackId'
+      ImageId: !FindInMap 
+        - AWSRegionAMIEC2
+        - !Ref 'AWS::Region'
+        - Ubuntu20
+      SubnetId: !Ref SubnetId
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - Opslyft-Prometheus-Exporter-
+              - !Select 
+                - 2
+                - !Split 
+                  - /
+                  - !Ref 'AWS::StackId'
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+              sudo apt-get update -y
+            - |
+              mkdir -p /opt/aws/bin
+            - >
+              wget
+              https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+            - >
+              python3 -m easy_install --script-dir /opt/aws/bin
+              aws-cfn-bootstrap-py3-latest.tar.gz
+            - >
+              ln -s /root/aws-cfn-bootstrap-latest/init/ubuntu/cfn-hup
+              /etc/init.d/cfn-hup
+            - |
+              cd /home/ubuntu
+            - |
+              git clone https://github.com/opslyft/PrometheusIntegration.git
+            - |
+              cd PrometheusIntegration
+            - |
+              git checkout feature-auth
+            - |
+              sudo apt-get install python3-venv -y
+            - |
+              sudo python3 -m venv venv
+            - |
+              source venv/bin/activate
+            - |
+              pip3 install -r requirements.txt
+            - |
+              cat <<EOF >credentials.py
+            - 'prometheus_credentials = { "url": "'
+            - !Ref PrometheusURL
+            - '", "username":"'
+            - !Ref PrometheusUsername
+            - '", "password":"'
+            - !Ref PrometheusPassword
+            - |
+              " }
+            - accountid = "
+            - !Ref 'AWS::AccountId'
+            - |
+              "
+            - unique_id = "
+            - !Select 
+              - 2
+              - !Split 
+                - /
+                - !Ref 'AWS::StackId'
+            - |
+              "
+            - |
+              EOF
+            - |
+              cd /home/ubuntu
+            - |
+              cat <<EOF >/home/ubuntu/initialize.sh
+            - |
+              cd /home/ubuntu/PrometheusIntegration
+            - |
+              git pull origin main
+            - |
+              source venv/bin/activate
+            - |
+              pip3 install -r requirements.txt
+            - |
+              python3 /home/ubuntu/PrometheusIntegration/app.py
+            - |
+              EOF
+            - |
+              cat <<EOF >/home/ubuntu/custom-cron
+            - >
+              0 * * * * bash /home/ubuntu/initialize.sh > /home/ubuntu/cron.out
+              2>&1
+            - |
+              EOF
+            - |
+              crontab -u root /home/ubuntu/custom-cron
+            - |
+              sudo rm /home/ubuntu/custom-cron
+            - '/opt/aws/bin/cfn-signal -e $? '
+            - '         --stack '
+            - !Ref 'AWS::StackName'
+            - '         --resource EC2Instance '
+            - '         --region '
+            - !Ref 'AWS::Region'
+            - |+
+
+    DependsOn:
+      - OpslyftPrometheusInstanceProfile
+  OpslyftPrometheusInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: !Join 
+        - ''
+        - - OpslyftPrometheusInstanceProfile-
+          - !Select 
+            - 2
+            - !Split 
+              - /
+              - !Ref 'AWS::StackId'
+      Path: /opslyft-prometheus-instance-profiles/
+      Roles:
+        - !Join 
+          - ''
+          - - opslyft-prometheus-role-
+            - !Select 
+              - 2
+              - !Split 
+                - /
+                - !Ref 'AWS::StackId'
+    DependsOn:
+      - OpslyftPrometheusIAMRole
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 9baed8b3-117b-4a53-8ce8-7353bf548559
+  OpslyftPrometheusIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: !Join 
+        - ''
+        - - >-
+            This role provides access to Opslyft's resources required for
+            prometheus integration of this account for stack : 
+          - !Ref 'AWS::StackId'
+      Path: /opslyft-prometheus-roles/
+      Policies:
+        - PolicyName: !Join 
+            - ''
+            - - opslyft-prometheus-policy-
+              - !Select 
+                - 2
+                - !Split 
+                  - /
+                  - !Ref 'AWS::StackId'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 'sts:AssumeRole'
+                Resource: !Join 
+                  - ''
+                  - - 'arn:aws:iam::'
+                    - '612488371952'
+                    - ':role/'
+                    - prometheus-roles-
+                    - !Ref 'AWS::AccountId'
+                    - /
+                    - prometheus-
+                    - !Ref 'AWS::AccountId'
+                    - '-'
+                    - !Select 
+                      - 2
+                      - !Split 
+                        - /
+                        - !Ref 'AWS::StackId'
+      RoleName: !Join 
+        - ''
+        - - opslyft-prometheus-role-
+          - !Select 
+            - 2
+            - !Split 
+              - /
+              - !Ref 'AWS::StackId'
+      Tags: []
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 9260299f-0ffe-4a78-87c0-84b5868425d2
+  SetupOpsLyft:
+    Type: 'AWS::CloudFormation::CustomResource'
+    Properties:
+      ServiceToken: !Join 
+        - ''
+        - - 'arn:aws:sns:'
+          - !Ref 'AWS::Region'
+          - ':612488371952:OpslyftPrometheusSetupCloudFormationTopic'
+      unique_id: !Select 
+        - 2
+        - !Split 
+          - /
+          - !Ref 'AWS::StackId'
+      stackid: !Ref 'AWS::StackId'
+      stackname: !Ref 'AWS::StackName'
+      region: !Ref 'AWS::Region'
+      exporter_instance_id: !Ref EC2Instance
+      accountid: !Ref 'AWS::AccountId'
+      prometheus_url: !Ref PrometheusURL
+      subnet_id: !Ref SubnetId
+    DependsOn:
+      - EC2Instance
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: d1d93663-98b5-4998-8446-2a011ec31441
+Metadata:
+  'AWS::CloudFormation::Designer':
+    9260299f-0ffe-4a78-87c0-84b5868425d2:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 60
+        'y': 90
+      z: 1
+      embeds: []
+    9baed8b3-117b-4a53-8ce8-7353bf548559:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 180
+        'y': 90
+      z: 1
+      embeds: []
+      dependson:
+        - 9260299f-0ffe-4a78-87c0-84b5868425d2
+    16a9dbc7-6f81-421e-ad64-7dd949b30250:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 60
+        'y': 210
+      z: 1
+      embeds: []
+      dependson:
+        - 9baed8b3-117b-4a53-8ce8-7353bf548559
+    d1d93663-98b5-4998-8446-2a011ec31441:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 180
+        'y': 210
+      z: 1
+      embeds: []
