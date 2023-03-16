@@ -21,7 +21,7 @@ Parameters:
   PrometheusPassword:
     Description: Password of prometheus if using basic auth (Leave Empty if not using auth)
     Type: String
-    NoEcho: True
+    NoEcho: true
 Mappings:
   AWSRegionAMIEC2:
     us-east-1:
@@ -327,7 +327,7 @@ Resources:
   SetupOpsLyft:
     Type: 'AWS::CloudFormation::CustomResource'
     Properties:
-      ServiceToken: !Join
+      ServiceToken: !Join 
         - ''
         - - 'arn:aws:sns:'
           - !Ref 'AWS::Region'
